@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Cricket\CricbuzzCricketService;
 use App\Services\Cricket\CricketBoard;
+use App\Services\Cricket\Demo\DemoMatchSimulator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -59,8 +60,36 @@ class CricketLiveController extends Controller
         }
 
         return response()
-            ->json($payload + ['refresh_limited' => $limited])
+            ->json($this->withDemoCards($payload) + ['refresh_limited' => $limited])
             ->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * Adds simulated matches beside the provider board for this response only.
+     * The cached Cricbuzz payload is left unchanged.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function withDemoCards(array $payload): array
+    {
+        $live = is_array($payload['live'] ?? null) ? $payload['live'] : [];
+        $results = is_array($payload['results'] ?? null) ? $payload['results'] : [];
+        $demoLive = [];
+        $demoResults = [];
+
+        foreach (app(DemoMatchSimulator::class)->listingRows() as $row) {
+            if (($row['kind'] ?? '') === 'result') {
+                $demoResults[] = $row;
+            } else {
+                $demoLive[] = $row;
+            }
+        }
+
+        $payload['live'] = array_merge($demoLive, $live);
+        $payload['results'] = array_merge($demoResults, $results);
+
+        return $payload;
     }
 
     public function show(Request $request, int $match, CricketBoard $board, CricbuzzCricketService $cricbuzz)

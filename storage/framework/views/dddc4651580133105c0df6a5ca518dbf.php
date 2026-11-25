@@ -13,13 +13,17 @@
         </div>
     </div>
 
+    <?php if($match->provider === 'cricbuzz'): ?>
+        <?php echo $__env->make('partials.cricket-market-live', ['match' => $match], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+    <?php endif; ?>
+
     <?php $minStake = max(1, (int) \App\Models\Setting::get('min_stake', 100)); ?>
 
     <?php $__empty_1 = true; $__currentLoopData = $match->markets; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $market): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
         <div class="classic-card" style="margin-bottom:14px">
             <div class="classic-card__head">
                 <span><?php echo e(strtoupper($market->name)); ?></span>
-                <span class="badge <?php echo e($market->status === 'open' ? 'badge--success' : 'badge--muted'); ?>"><?php echo e(strtoupper($market->status)); ?></span>
+                <span class="badge <?php echo e($market->status === 'open' ? 'badge--success' : 'badge--muted'); ?>" data-market-status="<?php echo e($market->id); ?>"><?php echo e(strtoupper($market->status)); ?></span>
             </div>
             <div class="table-wrap">
                 <table class="data-table">
@@ -42,7 +46,7 @@
                                 </td>
                                 <td>
                                     <?php if($market->status === 'open' && $selection->status === 'active' && $match->isBettingOpen()): ?>
-                                        <button class="btn btn--primary btn--sm" type="submit" form="bet-<?php echo e($selection->id); ?>" data-confirm="Place this bet?">Place Bet</button>
+                                        <button class="btn btn--primary btn--sm" type="submit" form="bet-<?php echo e($selection->id); ?>" data-market-id="<?php echo e($market->id); ?>" data-confirm="Place this bet?">Place Bet</button>
                                     <?php else: ?>
                                         —
                                     <?php endif; ?>

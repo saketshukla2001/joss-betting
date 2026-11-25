@@ -46,6 +46,16 @@ class Setting extends Model
         'cricket_upcoming_limit' => '8',
         'cricket_recent_limit' => '12',
         'legacy_opencricket_enabled' => '0',
+
+        // Live cricket Yes/No markets. Off until an admin turns them on.
+        'cricket_ai_markets_enabled' => '0',
+        'cricket_ai_approval_required' => '0',
+        'cricket_ai_use_model' => '0',
+        'cricket_ai_generation_seconds' => '60',
+        'cricket_ai_yes_odds' => '1.85',
+        'cricket_ai_no_odds' => '1.85',
+        'cricket_ai_templates' => 'runs_by_over,over_runs,wicket_in_over',
+        'cricket_sportmonks_enabled' => '0',
     ];
 
     public static function allCached(): array

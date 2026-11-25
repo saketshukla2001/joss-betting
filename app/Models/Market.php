@@ -31,6 +31,11 @@ class Market extends Model
         return $this->hasMany(Bet::class);
     }
 
+    public function cricketRule()
+    {
+        return $this->hasOne(CricketMarketRule::class);
+    }
+
     public function isOpen(): bool
     {
         return $this->status === 'open';

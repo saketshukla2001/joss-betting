@@ -11,6 +11,7 @@ class MatchGame extends Model
     protected $fillable = [
         'sport_id', 'league', 'home_team', 'away_team', 'start_time',
         'status', 'home_score', 'away_score', 'result', 'featured',
+        'provider', 'provider_match_id',
     ];
 
     protected function casts(): array
@@ -21,6 +22,15 @@ class MatchGame extends Model
             'home_score' => 'integer',
             'away_score' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('real_money', function ($query) {
+            $query->where(function ($inner) {
+                $inner->whereNull('provider')->orWhere('provider', '!=', 'demo');
+            });
+        });
     }
 
     public function sport()

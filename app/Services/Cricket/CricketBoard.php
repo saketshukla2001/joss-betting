@@ -15,9 +15,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class CricketBoard
 {
-    public function __construct(private CricbuzzCricketService $cricbuzz)
-    {
-    }
+    public function __construct(private CricbuzzCricketService $cricbuzz) {}
 
     /**
      * Configured fallback IDs (config, optionally overridden in settings).
@@ -91,6 +89,52 @@ class CricketBoard
         }
 
         return setting_enabled('cricket_discovery_mode', true) || $this->matchIds() !== [];
+    }
+
+    /**
+     * Last board already in cache. Never calls the provider.
+     *
+     * @return array<string, mixed>
+     */
+    public function remembered(): array
+    {
+        $cached = Cache::get('cricbuzz:board');
+
+        if (! is_array($cached)) {
+            $cached = Cache::get('cricbuzz:board:last');
+        }
+
+        if (! is_array($cached)) {
+            return [
+                'generated_at' => null,
+                'live' => [],
+                'upcoming' => [],
+                'results' => [],
+                'errors' => [],
+                'cached' => false,
+                'stale' => true,
+                'missing' => true,
+            ];
+        }
+
+        return $cached + ['cached' => true];
+    }
+
+    /**
+     * Cached board when one exists. Loads through the existing board builder
+     * only when both cache keys are empty, so a warm cache makes no provider call.
+     *
+     * @return array<string, mixed>
+     */
+    public function rememberedOrLoad(): array
+    {
+        $cached = $this->remembered();
+
+        if (! empty($cached['missing'])) {
+            return $this->get(false);
+        }
+
+        return $cached;
     }
 
     /**
@@ -227,6 +271,7 @@ class CricketBoard
 
         $detailLimit = max(0, (int) setting('cricket_detail_limit', 6));
         $fetched = 0;
+        $stopDetails = false;
         $rows = [];
 
         foreach ($entries as $entry) {
@@ -234,13 +279,30 @@ class CricketBoard
             $row = $this->rowFromDiscovery($match);
 
             // Fetch detailed score payloads only for genuinely live matches, and only up to the limit.
-            if ($row['kind'] === 'live' && ($detailLimit === 0 || $fetched < $detailLimit)) {
+            if (! $stopDetails && $row['kind'] === 'live' && ($detailLimit === 0 || $fetched < $detailLimit)) {
                 $detail = $this->cricbuzz->livescore((int) $match['id'], false, 90);
 
                 if ($detail['success'] && is_array($detail['data'])) {
-                    $row = $this->rowFromPresentation($row['label'], (int) $match['id'], $this->cricbuzz->presentLive($detail['data']), $detail['fetched_at'] ?? null);
+                    $detailed = $this->rowFromPresentation($row['label'], (int) $match['id'], $this->cricbuzz->presentLive($detail['data']), $detail['fetched_at'] ?? null);
+                    $detailed['team1'] = $row['team1'];
+                    $detailed['team2'] = $row['team2'];
+                    $detailed['provider_state'] = $row['provider_state'];
+                    $row = $detailed;
                 } else {
                     $row['error'] = $detail['error'] ?? 'Live detail unavailable.';
+                    $previous = $this->previousDetailedRow((int) $match['id']);
+
+                    if (is_array($previous) && is_array($previous['innings'] ?? null) && $previous['innings'] !== []) {
+                        $row['innings'] = $previous['innings'];
+                        $row['stale'] = true;
+                        $row['detail_reused'] = true;
+                    }
+
+                    $error = strtolower((string) $row['error']);
+
+                    if (str_contains($error, '429') || str_contains($error, 'rate limit')) {
+                        $stopDetails = true;
+                    }
                 }
 
                 $fetched++;
@@ -355,6 +417,9 @@ class CricketBoard
             'striker' => null,
             'non_striker' => null,
             'bowler' => null,
+            'team1' => $match['team1'] ?? null,
+            'team2' => $match['team2'] ?? null,
+            'provider_state' => $match['state'] ?? null,
             'series' => $match['series'] ?? null,
             'format' => $match['format'] ?? null,
             'venue' => $match['venue'] ?? null,
@@ -391,6 +456,9 @@ class CricketBoard
             'striker' => $presented['striker'] ?? null,
             'non_striker' => $presented['non_striker'] ?? null,
             'bowler' => $presented['bowler'] ?? null,
+            'team1' => null,
+            'team2' => null,
+            'provider_state' => null,
             'series' => null,
             'format' => null,
             'venue' => null,
@@ -407,6 +475,12 @@ class CricketBoard
      */
     private function markStale(array $row): array
     {
+        if (! empty($row['detail_reused'])) {
+            $row['stale'] = true;
+
+            return $row;
+        }
+
         $row['stale'] = CricketStatus::isStale($row['fetched_at'] ?? null);
 
         return $row;
@@ -437,5 +511,33 @@ class CricketBoard
         $ids = is_array($decoded) ? $decoded : preg_split('/[\s,]+/', $raw);
 
         return array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function previousDetailedRow(int $id): ?array
+    {
+        foreach (['cricbuzz:board', 'cricbuzz:board:last'] as $key) {
+            $cached = Cache::get($key);
+
+            if (! is_array($cached)) {
+                continue;
+            }
+
+            foreach (['live', 'results'] as $group) {
+                foreach (($cached[$group] ?? []) as $row) {
+                    if (! is_array($row) || (int) ($row['id'] ?? 0) !== $id) {
+                        continue;
+                    }
+
+                    if (is_array($row['innings'] ?? null) && $row['innings'] !== []) {
+                        return $row;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }

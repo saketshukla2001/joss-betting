@@ -6,7 +6,13 @@
     };
     $bettingAllowed = auth()->guest() || $canBet;
 @endphp
-<article class="card match-card {{ $match->status === 'live' ? 'match-card--live' : '' }}">
+<article class="card match-card {{ $match->status === 'live' ? 'match-card--live' : '' }}"
+    @if($match->provider === 'cricbuzz')
+        data-cricket-market-live
+        data-match-id="{{ $match->id }}"
+        data-endpoint="{{ route('cricket.markets.feed') }}"
+    @endif
+>
     <div class="match-card__top">
         <div class="league">
             <span class="sport-ico">{{ $match->sport?->icon ?? '🏆' }}</span>
@@ -39,6 +45,10 @@
             @endif
         </div>
     </div>
+
+    @if($match->provider === 'cricbuzz')
+        <p class="text-muted" data-cricket-score style="font-size:.78rem;margin:0 0 8px">Waiting for the cached score.</p>
+    @endif
 
     <div class="match-card__markets">
         @forelse($match->markets->take(2) as $market)
@@ -76,3 +86,6 @@
         <a class="link-more" href="{{ route('matches.show', $match) }}">All markets →</a>
     </div>
 </article>
+@if($match->provider === 'cricbuzz')
+    @include('partials.cricket-market-script')
+@endif

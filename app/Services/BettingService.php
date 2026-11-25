@@ -28,10 +28,14 @@ class BettingService
             }
 
             $market = Market::whereKey($selection->market_id)->lockForUpdate()->first();
-            $match = $market ? MatchGame::whereKey($market->match_id)->lockForUpdate()->first() : null;
+            $match = $market ? MatchGame::withoutGlobalScope('real_money')->whereKey($market->match_id)->lockForUpdate()->first() : null;
 
             if (! $market || ! $match) {
                 throw ValidationException::withMessages(['selection' => 'This market is no longer available.']);
+            }
+
+            if ($match->provider === 'demo' && $user->exemptFromDemoWallet()) {
+                return $this->placeIsolatedDemoBet($user, $selection, $market, $match, $stake, $ip);
             }
 
             if ($market->status !== 'open' || $selection->status !== 'active') {
@@ -186,23 +190,27 @@ class BettingService
             $oldStake = round((float) $bet->stake, 2);
             $oldOdds = round((float) $bet->odds, 2);
             $delta = round($stake - $oldStake, 2);
+            $match = MatchGame::withoutGlobalScope('real_money')->find($bet->match_id);
+            $exempt = $match?->provider === 'demo' && $user->exemptFromDemoWallet();
 
-            if ($delta > 0 && round((float) $user->balance, 2) + 0.001 < $delta) {
+            if (! $exempt && $delta > 0 && round((float) $user->balance, 2) + 0.001 < $delta) {
                 throw ValidationException::withMessages([
                     'stake' => 'Player balance ('.number_format((float) $user->balance, 2).') is not enough to raise the stake by '.number_format($delta, 2).'.',
                 ]);
             }
 
-            $user->balance = round((float) $user->balance - $delta, 2);
-            $user->exposure = max(0, round((float) $user->exposure + $delta, 2));
-            $user->save();
+            if (! $exempt) {
+                $user->balance = round((float) $user->balance - $delta, 2);
+                $user->exposure = max(0, round((float) $user->exposure + $delta, 2));
+                $user->save();
+            }
 
             $bet->stake = $stake;
             $bet->odds = $odds;
             $bet->potential_return = round($stake * $odds, 2);
             $bet->save();
 
-            if ($delta !== 0.0) {
+            if (! $exempt && $delta !== 0.0) {
                 WalletTransaction::create([
                     'user_id' => $user->id,
                     'type' => $delta > 0 ? 'bet' : 'refund',
@@ -245,7 +253,7 @@ class BettingService
                 throw ValidationException::withMessages(['market' => 'This market is already settled.']);
             }
 
-            $match = MatchGame::whereKey($market->match_id)->lockForUpdate()->firstOrFail();
+            $match = MatchGame::withoutGlobalScope('real_money')->whereKey($market->match_id)->lockForUpdate()->firstOrFail();
             $selections = Selection::where('market_id', $market->id)->lockForUpdate()->get();
             $bets = Bet::where('market_id', $market->id)->where('status', 'pending')->lockForUpdate()->get();
 
@@ -255,7 +263,11 @@ class BettingService
                 }
 
                 foreach ($bets as $bet) {
-                    $this->refundBet($bet);
+                    if ($this->demoTicketSkipsWallet($match, (int) $bet->user_id)) {
+                        $this->closeDemoBet($bet, 'void');
+                    } else {
+                        $this->refundBet($bet);
+                    }
                 }
 
                 $market->update(['status' => 'void']);
@@ -271,7 +283,9 @@ class BettingService
                 }
 
                 foreach ($bets as $bet) {
-                    if ($bet->selection_id === $winner->id) {
+                    if ($this->demoTicketSkipsWallet($match, (int) $bet->user_id)) {
+                        $this->closeDemoBet($bet, $bet->selection_id === $winner->id ? 'won' : 'lost');
+                    } elseif ($bet->selection_id === $winner->id) {
                         $this->payBet($bet);
                     } else {
                         $this->loseBet($bet);
@@ -345,8 +359,96 @@ class BettingService
         });
     }
 
+    /**
+     * Wallet exemption follows the account, not the demo provider.
+     */
+    private function demoTicketSkipsWallet(MatchGame $match, int $userId): bool
+    {
+        if ($match->provider !== 'demo') {
+            return false;
+        }
+
+        $ids = config('services.cricket.demo_wallet_exempt_user_ids', []);
+        $ids = array_map('intval', is_array($ids) ? $ids : []);
+
+        return $userId > 0 && in_array($userId, $ids, true);
+    }
+
+    /**
+     * Records a demo ticket for an allowlisted testing account.
+     * No wallet debit and no wallet transaction.
+     */
+    private function placeIsolatedDemoBet(User $user, Selection $selection, Market $market, MatchGame $match, float $stake, ?string $ip): Bet
+    {
+        if ($market->status !== 'open' || $selection->status !== 'active') {
+            throw ValidationException::withMessages(['selection' => 'Betting is suspended on this market right now.']);
+        }
+
+        if (! $match->isBettingOpen()) {
+            throw ValidationException::withMessages(['selection' => 'Betting is closed for this match.']);
+        }
+
+        $min = (float) Setting::get('min_stake', 100);
+        $max = (float) Setting::get('max_stake', 100000);
+
+        if ($stake < $min) {
+            throw ValidationException::withMessages(['stake' => 'Minimum stake is '.number_format($min, 0).'.']);
+        }
+
+        if ($stake > $max) {
+            throw ValidationException::withMessages(['stake' => 'Maximum stake is '.number_format($max, 0).'.']);
+        }
+
+        $lockedUser = User::whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+
+        if ($lockedUser->status !== 'active') {
+            throw ValidationException::withMessages(['stake' => 'Your account is not active.']);
+        }
+
+        $odds = round((float) $selection->odds, 2);
+
+        if ($odds < 1.01) {
+            throw ValidationException::withMessages(['selection' => 'Odds are unavailable for this selection.']);
+        }
+
+        do {
+            $code = 'BZ'.now()->format('ymd').Str::upper(Str::random(5));
+        } while (Bet::where('bet_code', $code)->exists());
+
+        return Bet::create([
+            'bet_code' => $code,
+            'user_id' => $lockedUser->id,
+            'match_id' => $match->id,
+            'market_id' => $market->id,
+            'selection_id' => $selection->id,
+            'sport_name' => $match->sport?->name ?? 'Cricket',
+            'league' => $match->league,
+            'match_label' => $match->label,
+            'market_name' => $market->name,
+            'selection_name' => $selection->name,
+            'odds' => $odds,
+            'stake' => $stake,
+            'potential_return' => round($stake * $odds, 2),
+            'status' => 'pending',
+            'ip_address' => $ip,
+        ])->load(['match.sport', 'market', 'selection']);
+    }
+
+    private function closeDemoBet(Bet $bet, string $status): void
+    {
+        if ($bet->status !== 'pending') {
+            return;
+        }
+
+        $bet->update(['status' => $status, 'payout' => 0, 'settled_at' => now()]);
+    }
+
     private function payBet(Bet $bet): void
     {
+        if ($bet->status !== 'pending') {
+            return;
+        }
+
         $payout = round($bet->stake * $bet->odds, 2);
         $user = User::whereKey($bet->user_id)->lockForUpdate()->first();
 
@@ -375,6 +477,10 @@ class BettingService
 
     private function loseBet(Bet $bet): void
     {
+        if ($bet->status !== 'pending') {
+            return;
+        }
+
         $user = User::whereKey($bet->user_id)->lockForUpdate()->first();
 
         if ($user) {
@@ -389,6 +495,10 @@ class BettingService
 
     private function refundBet(Bet $bet): void
     {
+        if ($bet->status !== 'pending') {
+            return;
+        }
+
         $user = User::whereKey($bet->user_id)->lockForUpdate()->first();
 
         if ($user) {

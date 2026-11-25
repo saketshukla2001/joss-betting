@@ -59,6 +59,22 @@ return [
         ],
     ],
 
+    'cricket' => [
+        // Comma-separated user ids. Only these accounts skip the wallet on a demo match.
+        // Role is ignored. An empty list charges every account, including admins.
+        'demo_wallet_exempt_user_ids' => array_values(array_filter(array_map(
+            static fn ($id) => (int) trim((string) $id),
+            explode(',', (string) env('CRICKET_DEMO_WALLET_EXEMPT_USER_IDS', ''))
+        ))),
+    ],
+
+    'cricket_ai' => [
+        'key' => env('CRICKET_AI_API_KEY'),
+        'url' => env('CRICKET_AI_URL', 'https://api.openai.com/v1/chat/completions'),
+        'model' => env('CRICKET_AI_MODEL', 'gpt-4o-mini'),
+        'timeout' => (int) env('CRICKET_AI_TIMEOUT', 12),
+    ],
+
     'sportmonks' => [
         'cricket_key' => env('SPORTMONKS_CRICKET_KEY', env('CRICKET_API_KEY')),
         'cricket_base_url' => env('SPORTMONKS_CRICKET_BASE_URL', 'https://cricket.sportmonks.com/api/v2.0'),

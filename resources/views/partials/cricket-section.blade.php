@@ -7,7 +7,7 @@
 <div class="section-head">
     <div>
         <h2>Live cricket</h2>
-        <p>Real scores from Cricbuzz — read-only, refreshing on its own.</p>
+        <p>Live scores refresh on their own. A card marked LIVE DEMO is simulated and is not a Cricbuzz match.</p>
     </div>
     <a class="link-more" href="{{ route('cricket.index') }}">All cricket →</a>
 </div>
@@ -25,7 +25,7 @@
 
 @once
     @push('scripts')
-        <script src="{{ asset('js/cricket.js') }}?v=1" defer></script>
+        <script src="{{ asset('js/cricket-live.js') }}?v=3" defer></script>
     @endpush
 @endonce
 @endif

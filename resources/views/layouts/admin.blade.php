@@ -68,7 +68,9 @@
                     <span class="admin-nav__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a15 15 0 010 18M3 12h18"/></svg>Sports Betting</span>
                     <span class="admin-group__chevron">⌄</span>
                 </summary>
-                <a class="admin-nav__sublink {{ request()->routeIs('admin.cricket.*') ? 'active' : '' }}" href="{{ route('admin.cricket.index') }}">CRICKET</a>
+                <a class="admin-nav__sublink {{ request()->routeIs('admin.cricket.markets', 'admin.cricket.markets.*') ? 'active' : '' }}" href="{{ route('admin.cricket.markets') }}">AI MARKETS</a>
+                <a class="admin-nav__sublink {{ request()->routeIs('admin.cricket.demo', 'admin.cricket.demo.*') ? 'active' : '' }}" href="{{ route('admin.cricket.demo') }}">LIVE DEMO</a>
+                <a class="admin-nav__sublink {{ request()->routeIs('admin.cricket.*') && ! request()->routeIs('admin.cricket.markets', 'admin.cricket.markets.*', 'admin.cricket.demo', 'admin.cricket.demo.*') ? 'active' : '' }}" href="{{ route('admin.cricket.index') }}">CRICKET</a>
                 <a class="admin-nav__sublink {{ request()->routeIs('admin.sports.inplay') ? 'active' : '' }}" href="{{ route('admin.sports.inplay') }}">INPLAY GAMES</a>
                 <a class="admin-nav__sublink {{ request()->routeIs('admin.sports.completed') ? 'active' : '' }}" href="{{ route('admin.sports.completed') }}">COMPLETED GAMES</a>
                 <a class="admin-nav__sublink {{ request()->routeIs('admin.sports.current-bets') ? 'active' : '' }}" href="{{ route('admin.sports.current-bets') }}">CURRENT BETS</a>

@@ -6,7 +6,13 @@
     };
     $bettingAllowed = auth()->guest() || $canBet;
 ?>
-<article class="card match-card <?php echo e($match->status === 'live' ? 'match-card--live' : ''); ?>">
+<article class="card match-card <?php echo e($match->status === 'live' ? 'match-card--live' : ''); ?>"
+    <?php if($match->provider === 'cricbuzz'): ?>
+        data-cricket-market-live
+        data-match-id="<?php echo e($match->id); ?>"
+        data-endpoint="<?php echo e(route('cricket.markets.feed')); ?>"
+    <?php endif; ?>
+>
     <div class="match-card__top">
         <div class="league">
             <span class="sport-ico"><?php echo e($match->sport?->icon ?? '🏆'); ?></span>
@@ -39,6 +45,10 @@
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if($match->provider === 'cricbuzz'): ?>
+        <p class="text-muted" data-cricket-score style="font-size:.78rem;margin:0 0 8px">Waiting for the cached score.</p>
+    <?php endif; ?>
 
     <div class="match-card__markets">
         <?php $__empty_1 = true; $__currentLoopData = $match->markets->take(2); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $market): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
@@ -76,4 +86,7 @@
         <a class="link-more" href="<?php echo e(route('matches.show', $match)); ?>">All markets →</a>
     </div>
 </article>
+<?php if($match->provider === 'cricbuzz'): ?>
+    <?php echo $__env->make('partials.cricket-market-script', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+<?php endif; ?>
 <?php /**PATH /Applications/XAMPP/xamppfiles/htdocs/joss_beting/resources/views/partials/match-card.blade.php ENDPATH**/ ?>

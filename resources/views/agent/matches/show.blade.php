@@ -15,13 +15,17 @@
         </div>
     </div>
 
+    @if($match->provider === 'cricbuzz')
+        @include('partials.cricket-market-live', ['match' => $match])
+    @endif
+
     @php $minStake = max(1, (int) \App\Models\Setting::get('min_stake', 100)); @endphp
 
     @forelse($match->markets as $market)
         <div class="classic-card" style="margin-bottom:14px">
             <div class="classic-card__head">
                 <span>{{ strtoupper($market->name) }}</span>
-                <span class="badge {{ $market->status === 'open' ? 'badge--success' : 'badge--muted' }}">{{ strtoupper($market->status) }}</span>
+                <span class="badge {{ $market->status === 'open' ? 'badge--success' : 'badge--muted' }}" data-market-status="{{ $market->id }}">{{ strtoupper($market->status) }}</span>
             </div>
             <div class="table-wrap">
                 <table class="data-table">
@@ -44,7 +48,7 @@
                                 </td>
                                 <td>
                                     @if($market->status === 'open' && $selection->status === 'active' && $match->isBettingOpen())
-                                        <button class="btn btn--primary btn--sm" type="submit" form="bet-{{ $selection->id }}" data-confirm="Place this bet?">Place Bet</button>
+                                        <button class="btn btn--primary btn--sm" type="submit" form="bet-{{ $selection->id }}" data-market-id="{{ $market->id }}" data-confirm="Place this bet?">Place Bet</button>
                                     @else
                                         —
                                     @endif

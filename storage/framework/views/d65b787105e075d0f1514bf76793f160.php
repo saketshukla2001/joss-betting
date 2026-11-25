@@ -22,7 +22,9 @@
             <span><?php echo e($match->home_team); ?> vs <?php echo e($match->away_team); ?></span>
         </div>
 
-        <?php if($match->status === 'cancelled'): ?>
+        <?php if($match->provider === 'demo'): ?>
+            <div class="alert alert--info">LIVE DEMO. This score is simulated. <?php if(auth()->user()?->exemptFromDemoWallet()): ?> This testing account is not charged. <?php else: ?> A bet is taken from your wallet and settled like any other match. <?php endif; ?></div>
+        <?php elseif($match->status === 'cancelled'): ?>
             <div class="alert alert--error">This match was cancelled. All open bets on it have been refunded to player wallets.</div>
         <?php elseif($match->status === 'settled'): ?>
             <div class="alert alert--info">This match is settled. Winning bets have been paid and losing bets closed.</div>
@@ -33,6 +35,9 @@
                 <section class="match-hero">
                     <div class="match-hero__meta">
                         <span class="badge <?php echo e($statusBadge); ?>"><?php echo e($match->status_label); ?></span>
+                        <?php if($match->provider === 'demo'): ?>
+                            <span class="badge badge--info">LIVE DEMO</span>
+                        <?php endif; ?>
                         <span class="text-muted"><?php echo e($match->sport?->icon); ?> <?php echo e($match->league); ?></span>
                         <span class="text-muted">·</span>
                         <span class="text-muted"><?php echo e($match->start_time->format('D, d M Y · h:i A')); ?></span>
@@ -64,6 +69,10 @@
                     </div>
                 </section>
 
+                <?php if(in_array($match->provider, ['cricbuzz', 'demo'], true)): ?>
+                    <?php echo $__env->make('partials.cricket-market-live', ['match' => $match], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+                <?php endif; ?>
+
                 <div class="section-head">
                     <div>
                         <h2>Markets</h2>
@@ -92,7 +101,7 @@
                                     <p>Auto-settles from the match result</p>
                                 <?php endif; ?>
                             </div>
-                            <span class="badge <?php echo e($marketBadge); ?>"><?php echo e($market->status_label); ?></span>
+                            <span class="badge <?php echo e($marketBadge); ?>" data-market-status="<?php echo e($market->id); ?>"><?php echo e($market->status_label); ?></span>
                         </div>
                         <div class="card__body">
                             <div class="selection-grid <?php echo e($market->selections->count() === 2 ? 'selection-grid--2' : ''); ?>">
@@ -191,7 +200,15 @@
                             <li><span>Min stake</span><strong><?php echo e(money($siteSettings['min_stake'])); ?></strong></li>
                             <li><span>Max stake</span><strong><?php echo e(money($siteSettings['max_stake'])); ?></strong></li>
                         </ul>
-                        <p class="text-muted mt-14" style="font-size:.72rem;margin-bottom:0">Odds are locked when the bet is placed. If a market is voided, stakes are refunded automatically. Settlement credits the full return (stake × odds) to your wallet.</p>
+                        <p class="text-muted mt-14" style="font-size:.72rem;margin-bottom:0">
+                            <?php if($match->provider === 'demo' && auth()->user()?->exemptFromDemoWallet()): ?>
+                                Odds are locked when the ticket is placed. This testing account is settled from the simulated balls and is not charged.
+                            <?php elseif($match->provider === 'demo'): ?>
+                                Odds are locked when the bet is placed. The stake is taken from your wallet. Settlement credits the full return (stake × odds) or closes a losing ticket.
+                            <?php else: ?>
+                                Odds are locked when the bet is placed. If a market is voided, stakes are refunded automatically. Settlement credits the full return (stake × odds) to your wallet.
+                            <?php endif; ?>
+                        </p>
                     </div>
                 </div>
 

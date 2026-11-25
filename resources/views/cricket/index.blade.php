@@ -7,7 +7,7 @@
         <div class="page-head">
             <div>
                 <h1>Live cricket <span class="badge badge--live">Live</span></h1>
-                <p>Cricbuzz discovery · live scores, wickets, overs and full scorecards · read-only</p>
+                <p>Live scores, wickets and overs. Cricbuzz cards stay on the provider feed. A LIVE DEMO card is simulated.</p>
             </div>
             <div class="chip-row">
                 <button type="button" class="btn btn--ghost btn--sm" data-cricket-refresh>Refresh</button>
@@ -46,6 +46,6 @@
 
 @if($feedEnabled)
     @push('scripts')
-        <script src="{{ asset('js/cricket.js') }}?v=1" defer></script>
+        <script src="{{ asset('js/cricket-live.js') }}?v=3" defer></script>
     @endpush
 @endif

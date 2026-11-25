@@ -27,7 +27,9 @@ class BetController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
-                'message' => 'Bet placed successfully — '.$bet->bet_code,
+                'message' => ($bet->match?->provider === 'demo' && $user->exemptFromDemoWallet()
+                    ? 'Demo ticket placed. Your wallet was not charged — '
+                    : 'Bet placed successfully — ').$bet->bet_code,
                 'bet' => [
                     'code' => $bet->bet_code,
                     'match' => $bet->match_label,
@@ -41,7 +43,11 @@ class BetController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Bet placed successfully. Ticket: '.$bet->bet_code);
+        $exempt = $bet->match?->provider === 'demo' && $user->exemptFromDemoWallet();
+
+        return back()->with('success', $exempt
+            ? 'Demo ticket placed. Your wallet was not charged. Ticket: '.$bet->bet_code
+            : 'Bet placed successfully. Ticket: '.$bet->bet_code);
     }
 
     public function index(Request $request)

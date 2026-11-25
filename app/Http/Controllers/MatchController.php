@@ -6,8 +6,10 @@ use App\Models\MatchGame;
 
 class MatchController extends Controller
 {
-    public function show(MatchGame $match)
+    public function show(int $match)
     {
+        $match = MatchGame::withoutGlobalScope('real_money')->findOrFail($match);
+
         $match->load([
             'sport',
             'markets' => fn ($query) => $query->orderByRaw("CASE status WHEN 'open' THEN 0 WHEN 'suspended' THEN 1 WHEN 'settled' THEN 2 ELSE 3 END")->orderBy('sort_order'),

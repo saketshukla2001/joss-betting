@@ -1,42 +1,47 @@
 <?php
 
 use App\Http\Controllers\AccountController;
-use App\Http\Controllers\Agent\AccountController as AgentAccountController;
-use App\Http\Controllers\Agent\BetController as AgentBetController;
-use App\Http\Controllers\Agent\CommissionController as AgentCommissionController;
-use App\Http\Controllers\Agent\DashboardController as AgentDashboardController;
-use App\Http\Controllers\Agent\PlayerController as AgentPlayerController;
-use App\Http\Controllers\Agent\WalletController as AgentWalletController;
 use App\Http\Controllers\Admin\AccessController as AdminAccessController;
 use App\Http\Controllers\Admin\AccountOperationsController as AdminAccountOperationsController;
 use App\Http\Controllers\Admin\AgentController as AdminAgentController;
 use App\Http\Controllers\Admin\BetController as AdminBetController;
 use App\Http\Controllers\Admin\CashTransactionController as AdminCashController;
-use App\Http\Controllers\Admin\CricketController as AdminCricketController;
-use App\Http\Controllers\Admin\CommReportController as AdminCommReportController;
 use App\Http\Controllers\Admin\CommissionController as AdminCommissionController;
+use App\Http\Controllers\Admin\CommReportController as AdminCommReportController;
+use App\Http\Controllers\Admin\CricketController as AdminCricketController;
+use App\Http\Controllers\Admin\CricketDemoController as AdminCricketDemoController;
+use App\Http\Controllers\Admin\CricketMarketController as AdminCricketMarketController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\HierarchyController as AdminHierarchyController;
 use App\Http\Controllers\Admin\LedgerController as AdminLedgerController;
-use App\Http\Controllers\Admin\SecureCodeController as AdminSecureCodeController;
-use App\Http\Controllers\Admin\SearchClientController as AdminSearchClientController;
-use App\Http\Controllers\Admin\StatementController as AdminStatementController;
-use App\Http\Controllers\Admin\SportsController as AdminSportsController;
-use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\MarketController;
 use App\Http\Controllers\Admin\MarketDraftController as AdminMarketDraftController;
 use App\Http\Controllers\Admin\MatchController as AdminMatchController;
 use App\Http\Controllers\Admin\PaymentController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\SearchClientController as AdminSearchClientController;
+use App\Http\Controllers\Admin\SecureCodeController as AdminSecureCodeController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\SportsController as AdminSportsController;
+use App\Http\Controllers\Admin\StatementController as AdminStatementController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Agent\AccountController as AgentAccountController;
+use App\Http\Controllers\Agent\BetController as AgentBetController;
+use App\Http\Controllers\Agent\CommissionController as AgentCommissionController;
+use App\Http\Controllers\Agent\DashboardController as AgentDashboardController;
+use App\Http\Controllers\Agent\HierarchyController;
+use App\Http\Controllers\Agent\PlayerController as AgentPlayerController;
+use App\Http\Controllers\Agent\WalletController as AgentWalletController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\BetController;
 use App\Http\Controllers\CricbuzzTestController;
 use App\Http\Controllers\CricketLiveController;
+use App\Http\Controllers\CricketMarketFeedController;
 use App\Http\Controllers\CricketTestController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DemoCricketController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MatchController;
 use App\Http\Controllers\OddsController;
@@ -54,9 +59,12 @@ Route::get('/sports', [SportController::class, 'index'])->name('sports.index');
 Route::get('/sports/{sport:slug}', [SportController::class, 'index'])->name('sports.show');
 Route::get('/matches/{match}', [MatchController::class, 'show'])->name('matches.show');
 Route::get('/api/odds', [OddsController::class, 'bulk'])->name('api.odds');
+Route::get('/api/cricket-markets', CricketMarketFeedController::class)->name('cricket.markets.feed');
 
 // Isolated read-only Sportmonks Cricket API test page (no betting modules involved).
 // Public read-only cricket section (Cricbuzz data, no betting involvement).
+Route::get('/live-demo', [DemoCricketController::class, 'index'])->name('demo-cricket.index');
+Route::get('/live-demo/{match}', [DemoCricketController::class, 'show'])->whereNumber('match')->name('demo-cricket.show');
 Route::get('/cricket', [CricketLiveController::class, 'index'])->name('cricket.index');
 Route::get('/cricket/board', [CricketLiveController::class, 'board'])->name('cricket.board');
 Route::get('/cricket/{match}', [CricketLiveController::class, 'show'])->whereNumber('match')->name('cricket.show');
@@ -114,16 +122,16 @@ Route::middleware(['auth', 'active', 'client'])->group(function () {
 Route::middleware(['auth', 'active', 'agent'])->prefix('agent')->name('agent.')->group(function () {
     Route::get('/', [AgentDashboardController::class, 'index'])->name('dashboard');
 
-    Route::get('matches', [\App\Http\Controllers\Agent\MatchController::class, 'index'])->middleware('panel.module:matches')->name('matches.index');
-    Route::get('matches/{match}', [\App\Http\Controllers\Agent\MatchController::class, 'show'])->middleware('panel.module:matches')->name('matches.show');
+    Route::get('matches', [App\Http\Controllers\Agent\MatchController::class, 'index'])->middleware('panel.module:matches')->name('matches.index');
+    Route::get('matches/{match}', [App\Http\Controllers\Agent\MatchController::class, 'show'])->middleware('panel.module:matches')->name('matches.show');
     Route::post('matches/bet', [BetController::class, 'store'])->middleware('panel.module:matches')->name('bet.place');
     Route::get('my-bets', [AgentBetController::class, 'myBets'])->middleware('panel.module:mybets')->name('my-bets');
 
-    Route::get('hierarchy', [\App\Http\Controllers\Agent\HierarchyController::class, 'index'])->middleware('panel.module:network')->name('hierarchy.index');
-    Route::get('hierarchy/create', [\App\Http\Controllers\Agent\HierarchyController::class, 'create'])->middleware('panel.module:create')->name('hierarchy.create');
-    Route::post('hierarchy', [\App\Http\Controllers\Agent\HierarchyController::class, 'store'])->middleware('panel.module:create')->name('hierarchy.store');
-    Route::get('hierarchy/{user}/edit', [\App\Http\Controllers\Agent\HierarchyController::class, 'edit'])->middleware(['panel.module:network', 'panel.module:create'])->name('hierarchy.edit');
-    Route::put('hierarchy/{user}', [\App\Http\Controllers\Agent\HierarchyController::class, 'update'])->middleware(['panel.module:network', 'panel.module:create'])->name('hierarchy.update');
+    Route::get('hierarchy', [HierarchyController::class, 'index'])->middleware('panel.module:network')->name('hierarchy.index');
+    Route::get('hierarchy/create', [HierarchyController::class, 'create'])->middleware('panel.module:create')->name('hierarchy.create');
+    Route::post('hierarchy', [HierarchyController::class, 'store'])->middleware('panel.module:create')->name('hierarchy.store');
+    Route::get('hierarchy/{user}/edit', [HierarchyController::class, 'edit'])->middleware(['panel.module:network', 'panel.module:create'])->name('hierarchy.edit');
+    Route::put('hierarchy/{user}', [HierarchyController::class, 'update'])->middleware(['panel.module:network', 'panel.module:create'])->name('hierarchy.update');
 
     Route::get('players', [AgentPlayerController::class, 'index'])->middleware('panel.module:players')->name('players.index');
     Route::get('players/create', [AgentPlayerController::class, 'create'])->middleware(['panel.module:players', 'panel.module:create'])->name('players.create');
@@ -179,6 +187,22 @@ Route::middleware(['auth', 'active', 'admin'])->prefix('admin')->name('admin.')-
     Route::get('cricket/health', [AdminCricketController::class, 'health'])->name('cricket.health');
     Route::get('cricket/settings', [AdminCricketController::class, 'settings'])->name('cricket.settings');
     Route::post('cricket/settings', [AdminCricketController::class, 'updateSettings'])->name('cricket.settings.update');
+    Route::get('cricket/ai-markets', [AdminCricketMarketController::class, 'index'])->name('cricket.markets');
+    Route::get('cricket/demo', [AdminCricketDemoController::class, 'index'])->name('cricket.demo');
+    Route::post('cricket/demo', [AdminCricketDemoController::class, 'store'])->name('cricket.demo.store');
+    Route::post('cricket/demo/{demoMatch}/start', [AdminCricketDemoController::class, 'start'])->name('cricket.demo.start');
+    Route::post('cricket/demo/{demoMatch}/pause', [AdminCricketDemoController::class, 'pause'])->name('cricket.demo.pause');
+    Route::post('cricket/demo/{demoMatch}/resume', [AdminCricketDemoController::class, 'resume'])->name('cricket.demo.resume');
+    Route::post('cricket/demo/{demoMatch}/auto', [AdminCricketDemoController::class, 'auto'])->name('cricket.demo.auto');
+    Route::post('cricket/demo/{demoMatch}/ball', [AdminCricketDemoController::class, 'ball'])->name('cricket.demo.ball');
+    Route::post('cricket/ai-markets/settings', [AdminCricketMarketController::class, 'updateSettings'])->name('cricket.markets.settings');
+    Route::post('cricket/ai-markets/run', [AdminCricketMarketController::class, 'run'])->name('cricket.markets.run');
+    Route::post('cricket/ai-markets/matches/{match}/toggle', [AdminCricketMarketController::class, 'toggleMatch'])->name('cricket.markets.toggle');
+    Route::post('cricket/ai-markets/candidates/{candidate}/approve', [AdminCricketMarketController::class, 'approve'])->name('cricket.markets.approve');
+    Route::post('cricket/ai-markets/candidates/{candidate}/reject', [AdminCricketMarketController::class, 'reject'])->name('cricket.markets.reject');
+    Route::post('cricket/ai-markets/rules/{rule}/suspend', [AdminCricketMarketController::class, 'suspend'])->name('cricket.markets.suspend');
+    Route::post('cricket/ai-markets/rules/{rule}/reopen', [AdminCricketMarketController::class, 'reopen'])->name('cricket.markets.reopen');
+    Route::post('cricket/ai-markets/rules/{rule}/void', [AdminCricketMarketController::class, 'void'])->name('cricket.markets.void');
 
     Route::get('sports-betting/inplay', [AdminSportsController::class, 'inplay'])->name('sports.inplay');
     Route::get('sports-betting/completed', [AdminSportsController::class, 'completed'])->name('sports.completed');

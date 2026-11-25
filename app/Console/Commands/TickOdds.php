@@ -44,6 +44,7 @@ class TickOdds extends Command
     {
         $marketIds = Market::query()
             ->where('status', 'open')
+            ->whereDoesntHave('cricketRule')
             ->whereHas('match', fn ($query) => $query->whereIn('status', ['upcoming', 'live']))
             ->pluck('id');
 

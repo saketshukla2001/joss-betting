@@ -131,6 +131,17 @@ class User extends Authenticatable
         return $this->status === 'active';
     }
 
+    /**
+     * Demo-match wallet exemption is an explicit user-id allowlist, never a role.
+     */
+    public function exemptFromDemoWallet(): bool
+    {
+        $ids = config('services.cricket.demo_wallet_exempt_user_ids', []);
+        $ids = array_map('intval', is_array($ids) ? $ids : []);
+
+        return (int) $this->id > 0 && in_array((int) $this->id, $ids, true);
+    }
+
     public function getInitialsAttribute(): string
     {
         return Str::of($this->name)->explode(' ')->filter()->take(2)

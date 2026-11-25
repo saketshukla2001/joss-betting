@@ -30,7 +30,7 @@ class Bet extends Model
 
     public function match()
     {
-        return $this->belongsTo(MatchGame::class, 'match_id');
+        return $this->belongsTo(MatchGame::class, 'match_id')->withoutGlobalScope('real_money');
     }
 
     public function market()

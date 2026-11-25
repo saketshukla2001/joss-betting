@@ -10,6 +10,7 @@
         </div>
         <div class="actions-row">
             <a class="btn btn--ghost btn--sm" href="<?php echo e(route('admin.cricket.matches')); ?>">Matches</a>
+            <a class="btn btn--ghost btn--sm" href="<?php echo e(route('admin.cricket.markets')); ?>">AI markets</a>
             <a class="btn btn--ghost btn--sm" href="<?php echo e(route('admin.cricket.health')); ?>">API health</a>
             <a class="btn btn--primary btn--sm" href="<?php echo e(route('admin.cricket.settings')); ?>">Settings</a>
         </div>
